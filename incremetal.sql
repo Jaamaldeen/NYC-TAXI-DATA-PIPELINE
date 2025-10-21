@@ -39,7 +39,8 @@ CREATE TABLE bronze.taxi (
     total_amount FLOAT,
     congestion_surcharge FLOAT,
     Airport_fee FLOAT,
-    time_uploaded TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    time_uploaded TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT unique_trip UNIQUE (VendorID, tpep_pickup_datetime, tpep_dropoff_datetime, PULocationID, DOLocationID)
 );
 
 CREATE TABLE silver.taxi (
@@ -189,7 +190,7 @@ BEGIN
     WHERE (m_last_load_time IS NULL OR time_uploaded > m_last_load_time)
       AND trip_distance > 0
 	  AND tpep_dropoff_datetime > '2023-12-31' 
-	  AND   tpep_pickup_datetime > '2023-12-31';
+	  AND tpep_pickup_datetime > '2023-12-31';
     RETURN NULL;
 END;
 $$ LANGUAGE plpgsql;
@@ -334,7 +335,10 @@ REFERENCING NEW TABLE AS new_silver_rows
 FOR EACH STATEMENT
 EXECUTE FUNCTION gold_load();
 
-COPY bronze.taxi (
+
+DROP TABLE IF EXISTS tmp_taxi;
+CREATE TEMP TABLE tmp_taxi (LIKE bronze.taxi INCLUDING DEFAULTS INCLUDING CONSTRAINTS EXCLUDING INDEXES);
+copy tmp_taxi (
     VendorID,
     tpep_pickup_datetime,
     tpep_dropoff_datetime,
@@ -355,5 +359,11 @@ COPY bronze.taxi (
     congestion_surcharge,
     Airport_fee
 )
-FROM 'C:\Program Files\PostgreSQL\17\data\yellow taxi\yellow_tripdata_2024-01.csv'
+FROM 'C:\Program Files\PostgreSQL\17\data\yellow taxi\yellow_tripdata_2024-02.csv'
 WITH (FORMAT csv, HEADER true);
+
+
+
+INSERT INTO bronze.taxi
+SELECT * FROM tmp_taxi
+ON CONFLICT DO NOTHING;
