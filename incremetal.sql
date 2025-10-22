@@ -1,3 +1,8 @@
+/*------------------------------------------------------------------------------------------------------------
+DROPING ALL THE SCHEMAS, WHICH WILL DELETE ALL THE TRIGGER, TABLE IN THE DATABASE, THIS WILL ALLLOW THE CODE TO RUN
+MANY TIMES WITHOUT FACING ANY PROBLEM
+------------------------------------------------------------------------------------------------ */
+
 DROP SCHEMA IF EXISTS bronze CASCADE;
 DROP SCHEMA IF EXISTS silver CASCADE;
 DROP SCHEMA IF EXISTS gold CASCADE;
@@ -18,7 +23,9 @@ VALUES
     ('bronze', NULL),
     ('silver', NULL),
     ('gold', NULL);
-
+/*------------------------------------------------------------------------------------------------------------
+CREATING TABLE FOR THE BRONZE, SILVER AND GOLD LAYER
+------------------------------------------------------------------------------------------------ */
 CREATE TABLE bronze.taxi (
     VendorID INT,
     tpep_pickup_datetime TIMESTAMP,
@@ -130,6 +137,11 @@ AFTER INSERT ON silver.taxi
 FOR EACH STATEMENT
 EXECUTE FUNCTION metadata.update_last_load();
 
+/*------------------------------------------------------------------------------------------------------------
+
+							SILVER TRIGGER
+------------------------------------------------------------------------------------------------ */
+
 CREATE OR REPLACE FUNCTION silver_load()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -199,7 +211,10 @@ CREATE TRIGGER trg_silver_load
 AFTER INSERT ON bronze.taxi
 FOR EACH STATEMENT
 EXECUTE FUNCTION silver_load();
+/*------------------------------------------------------------------------------------------------------------
 
+							GOLD TRIGGER
+--------------------------------------------------------------------------------------------- */
 CREATE OR REPLACE FUNCTION gold_load()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -335,6 +350,9 @@ REFERENCING NEW TABLE AS new_silver_rows
 FOR EACH STATEMENT
 EXECUTE FUNCTION gold_load();
 
+/*------------------------------------------------------------------------------------------------------------
+INSERTING INTO THE TEMPORARY TABLE BEFORE INSERTING INTO THE BRONZE TAXI TABLE
+------------------------------------------------------------------------------------------------ */
 
 DROP TABLE IF EXISTS tmp_taxi;
 CREATE TEMP TABLE tmp_taxi (LIKE bronze.taxi INCLUDING DEFAULTS INCLUDING CONSTRAINTS EXCLUDING INDEXES);
@@ -359,7 +377,7 @@ copy tmp_taxi (
     congestion_surcharge,
     Airport_fee
 )
-FROM 'C:\Program Files\PostgreSQL\17\data\yellow taxi\yellow_tripdata_2024-02.csv'
+FROM 'C:\Program Files\PostgreSQL\17\data\yellow taxi\yellow_tripdata_2024-01.csv' 
 WITH (FORMAT csv, HEADER true);
 
 
